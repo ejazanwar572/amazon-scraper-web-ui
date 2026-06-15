@@ -195,6 +195,9 @@ class ProductStorage:
                 await cur.execute(_CREATE_PRODUCTS_PG)
                 await cur.execute(_CREATE_PRICE_HISTORY_PG)
                 await cur.execute(_CREATE_PRICE_HISTORY_INDEX)
+                # Clean up existing products with no price
+                await cur.execute("DELETE FROM products WHERE price IS NULL;")
+                await cur.execute("DELETE FROM price_history WHERE price IS NULL;")
             await self._pg_conn.commit()
             logger.info("PostgreSQL storage initialised")
         else:
@@ -206,6 +209,9 @@ class ProductStorage:
             await self._sqlite_conn.execute(_CREATE_PRODUCTS_SQLITE)
             await self._sqlite_conn.execute(_CREATE_PRICE_HISTORY_SQLITE)
             await self._sqlite_conn.execute(_CREATE_PRICE_HISTORY_INDEX)
+            # Clean up existing products with no price
+            await self._sqlite_conn.execute("DELETE FROM products WHERE price IS NULL;")
+            await self._sqlite_conn.execute("DELETE FROM price_history WHERE price IS NULL;")
             await self._sqlite_conn.commit()
             logger.info("SQLite storage initialised at %s", self._config.db_path)
 
@@ -240,6 +246,9 @@ class ProductStorage:
 
     async def save_product(self, product: Product) -> None:
         """Upsert a single product and record price history if changed."""
+        if product.price is None:
+            logger.info("Skipping product %s from save: price is None", product.asin)
+            return
         # Check whether price has changed to avoid redundant history rows
         await self._record_price_if_changed(product)
 
@@ -271,6 +280,9 @@ class ProductStorage:
         """Upsert a batch of products. Returns the count saved."""
         count = 0
         for product in products:
+            if product.price is None:
+                logger.info("Skipping product %s from batch save: price is None", product.asin)
+                continue
             await self._record_price_if_changed(product)
             upsert_query = _UPSERT_PRODUCT_PG if self._backend == "postgresql" else _UPSERT_PRODUCT_SQLITE
             await self._execute(
