@@ -250,7 +250,12 @@ function renderLogs(logsList) {
     }
 }
 
-function clearConsole() {
+async function clearConsole() {
+    try {
+        await fetch('/api/logs/clear', { method: 'POST' });
+    } catch (err) {
+        console.error('Failed to clear logs on server:', err);
+    }
     document.getElementById('console-logs-output').innerHTML = '<div class="log-line log-info">Console cleared.</div>';
 }
 

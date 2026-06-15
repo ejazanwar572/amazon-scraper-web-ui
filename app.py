@@ -96,6 +96,11 @@ async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks
     )
     return {"status": "started", "message": f"Scraping started for '{request.keyword}'"}
 
+@app.post("/api/logs/clear")
+async def clear_logs():
+    log_buffer.clear()
+    return {"status": "success", "message": "Log buffer cleared"}
+
 @app.get("/api/status")
 async def get_status():
     return {
