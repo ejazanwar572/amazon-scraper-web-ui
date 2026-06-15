@@ -2,6 +2,7 @@ import asyncio
 import collections
 import logging
 import math
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -39,6 +40,20 @@ root_logger = logging.getLogger()
 root_logger.addHandler(log_handler)
 logging.getLogger("amzscraper").addHandler(log_handler)
 
+# Global dict to store the summary metrics of the last completed scrape run
+last_scrape = {
+    "keyword": "",
+    "marketplace": "",
+    "max_pages": 0,
+    "total_extracted_asins": 0,
+    "products_saved": 0,
+    "failed_runs": 0,
+    "avg_products_per_page": 0.0,
+    "duration_seconds": 0.0,
+    "timestamp": "",
+    "success_rate": 0.0,
+}
+
 app = FastAPI(title="Amazon Scraper Dashboard API")
 
 # Configuration
@@ -61,6 +76,7 @@ async def run_scraper_task(keyword: str, max_pages: int, marketplace: str):
         log_buffer.clear()
         logging.info("Starting background scraping task for keyword: '%s' (max_pages=%d, marketplace=%s)", keyword, max_pages, marketplace)
         
+        start_time = time.monotonic()
         try:
             config = load_config()
             config.scraping.marketplace = marketplace
@@ -74,8 +90,49 @@ async def run_scraper_task(keyword: str, max_pages: int, marketplace: str):
             # Execute scraper orchestrator
             await run_scrape_keywords(config, [keyword], max_pages=max_pages)
             logging.info("Background scraping task finished successfully!")
+            
+            # Capture metrics on success
+            duration = time.monotonic() - start_time
+            total = scrape_progress.get("total", 0)
+            saved = scrape_progress.get("saved", 0)
+            failed = scrape_progress.get("failed", 0)
+            success_rate = (saved / total * 100) if total > 0 else 100.0
+            avg_per_page = round(total / max_pages, 1) if max_pages > 0 else 0.0
+            
+            last_scrape.update({
+                "keyword": keyword,
+                "marketplace": marketplace,
+                "max_pages": max_pages,
+                "total_extracted_asins": total,
+                "products_saved": saved,
+                "failed_runs": failed,
+                "avg_products_per_page": avg_per_page,
+                "duration_seconds": round(duration, 1),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success_rate": round(success_rate, 1)
+            })
         except Exception as e:
             logging.error("Exception occurred during background scraping: %s", e, exc_info=True)
+            # Capture metrics on failure
+            duration = time.monotonic() - start_time
+            total = scrape_progress.get("total", 0)
+            saved = scrape_progress.get("saved", 0)
+            failed = scrape_progress.get("failed", 0)
+            success_rate = (saved / total * 100) if total > 0 else 0.0
+            avg_per_page = round(total / max_pages, 1) if max_pages > 0 else 0.0
+            
+            last_scrape.update({
+                "keyword": keyword,
+                "marketplace": marketplace,
+                "max_pages": max_pages,
+                "total_extracted_asins": total,
+                "products_saved": saved,
+                "failed_runs": failed,
+                "avg_products_per_page": avg_per_page,
+                "duration_seconds": round(duration, 1),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success_rate": round(success_rate, 1)
+            })
         finally:
             scrape_progress["active"] = False
 
@@ -111,7 +168,8 @@ async def get_status():
         "failed": scrape_progress.get("failed", 0),
         "saved": scrape_progress.get("saved", 0),
         "current_asin": scrape_progress.get("current_asin", ""),
-        "logs": list(log_buffer)
+        "logs": list(log_buffer),
+        "last_scrape": last_scrape
     }
 
 @app.get("/api/products")

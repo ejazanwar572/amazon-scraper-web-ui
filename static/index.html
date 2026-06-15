@@ -182,6 +182,39 @@
                             <div class="placeholder-desc">Fill in a keyword and click 'Start Scraping' to initiate the background scraping process.</div>
                         </div>
 
+                        <!-- Last Scraping Task Details -->
+                        <div class="last-scrape-summary-card glass hidden" id="last-scrape-summary-panel">
+                            <div class="summary-card-title">
+                                <i class="fa-solid fa-square-poll-vertical text-purple"></i> Last Scrape Summary
+                            </div>
+                            <div class="summary-details-grid">
+                                <div class="summary-detail-item">
+                                    <span class="label">Keyword</span>
+                                    <span class="value" id="last-keyword">-</span>
+                                </div>
+                                <div class="summary-detail-item">
+                                    <span class="label">Saved Products</span>
+                                    <span class="value text-green" id="last-saved">-</span>
+                                </div>
+                                <div class="summary-detail-item">
+                                    <span class="label">Items / Page</span>
+                                    <span class="value text-blue" id="last-items-per-page">-</span>
+                                </div>
+                                <div class="summary-detail-item">
+                                    <span class="label">Failed Pages</span>
+                                    <span class="value text-red" id="last-failed">-</span>
+                                </div>
+                                <div class="summary-detail-item">
+                                    <span class="label">Success Rate</span>
+                                    <span class="value text-purple" id="last-success-rate">-</span>
+                                </div>
+                                <div class="summary-detail-item">
+                                    <span class="label">Duration</span>
+                                    <span class="value" id="last-duration">-</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Live Terminal Console Logs -->
                         <div class="console-logs-wrapper">
                             <div class="console-header">

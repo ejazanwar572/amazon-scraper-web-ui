@@ -211,6 +211,21 @@ function updateMonitorUI(data) {
         progressContainer.classList.add('hidden');
     }
     
+    // Render Last Scrape Summary Card (if details exist)
+    const lastScrapePanel = document.getElementById('last-scrape-summary-panel');
+    if (data.last_scrape && data.last_scrape.keyword) {
+        lastScrapePanel.classList.remove('hidden');
+        document.getElementById('last-keyword').innerText = data.last_scrape.keyword;
+        document.getElementById('last-keyword').title = data.last_scrape.keyword;
+        document.getElementById('last-saved').innerText = data.last_scrape.products_saved;
+        document.getElementById('last-items-per-page').innerText = data.last_scrape.avg_products_per_page;
+        document.getElementById('last-failed').innerText = data.last_scrape.failed_runs;
+        document.getElementById('last-success-rate').innerText = `${data.last_scrape.success_rate}%`;
+        document.getElementById('last-duration').innerText = `${data.last_scrape.duration_seconds}s`;
+    } else {
+        lastScrapePanel.classList.add('hidden');
+    }
+    
     // Render rolling log records
     renderLogs(data.logs);
 }

@@ -1122,3 +1122,54 @@ h1, h2, h3, h4, h5, h6 {
         background-position: -200% 0;
     }
 }
+
+/* Last Scrape Summary Widget */
+.last-scrape-summary-card {
+    background: hsla(220, 20%, 12%, 0.5);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.summary-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.summary-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.summary-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: hsla(220, 20%, 14%, 0.3);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid hsla(220, 15%, 20%, 0.2);
+}
+
+.summary-detail-item .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.summary-detail-item .value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
