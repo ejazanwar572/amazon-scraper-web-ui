@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: amzscraper-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: amzscraper-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: amazon_scraper
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  redis_data:
+  pg_data:

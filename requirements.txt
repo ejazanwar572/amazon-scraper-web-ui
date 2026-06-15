@@ -1,0 +1,17 @@
+curl_cffi>=0.7.0
+selectolax>=0.3.21
+pyyaml>=6.0
+aiofiles>=24.1.0
+mmh3>=4.0.0
+bitarray>=2.9.0
+rich>=13.0.0
+click>=8.1.0
+aiosqlite>=0.20.0
+# Optional
+playwright>=1.40.0
+psycopg[binary]>=3.1.0
+redis>=5.0.0
+httpx>=0.27.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+

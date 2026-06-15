@@ -1,0 +1,33 @@
+http:
+  timeout: 30
+  max_retries: 3
+  retry_backoff: 1.5
+  concurrent_requests: 50
+
+proxy:
+  provider: file
+  proxy_list_file: proxies.txt
+  session_duration_sec: 300
+  rotation_strategy: round_robin
+
+queue:
+  backend: file
+  redis_url: redis://localhost:6379/0
+  bloom_filter_capacity: 1000000
+  bloom_error_rate: 0.001
+
+storage:
+  backend: postgresql
+  db_path: data/products.db
+  pg_dsn: "postgresql://localhost:5432/amazon_scraper"
+
+scraping:
+  marketplace: in
+  request_delay_min: 1.0
+  request_delay_max: 3.0
+  user_agent_rotation: true
+
+monitoring:
+  log_level: DEBUG
+  stats_interval_sec: 60
+  alert_webhook_url: ""
