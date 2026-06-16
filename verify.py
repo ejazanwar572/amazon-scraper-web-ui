@@ -101,6 +101,23 @@ async def test_all():
     stats_sqlite = await storage_sqlite.get_daily_stats()
     assert stats_sqlite["total_products"] == 1
     assert stats_sqlite["products_scraped_today"] == 1
+
+    # Test price alerts logic
+    product.price = 2000.0
+    product.scraped_at = datetime.now(timezone.utc)
+    await storage_sqlite.save_product(product)
+    
+    alerts = await storage_sqlite.get_price_alerts(min_change_pct=30.0)
+    assert len(alerts) == 1, f"Expected 1 price alert, got {len(alerts)}"
+    alert_prod, init_price = alerts[0]
+    assert alert_prod.asin == "B07XJ8C8F2"
+    assert init_price == 3499.0, f"Expected initial price 3499.0, got {init_price}"
+    assert alert_prod.price == 2000.0
+    
+    # Verify that a 50% threshold does not return the alert
+    high_alerts = await storage_sqlite.get_price_alerts(min_change_pct=50.0)
+    assert len(high_alerts) == 0, f"Expected 0 alerts for 50% change, got {len(high_alerts)}"
+
     await storage_sqlite.close()
     
     if os.path.exists("data/test_products.db"):
@@ -151,6 +168,18 @@ async def test_all():
     stats_pg = await storage_pg.get_daily_stats()
     assert stats_pg["total_products"] == 1
     assert stats_pg["products_scraped_today"] == 1
+
+    # Test price alerts logic on Postgres
+    product.price = 2000.0
+    product.scraped_at = datetime.now(timezone.utc)
+    await storage_pg.save_product(product)
+    
+    alerts_pg = await storage_pg.get_price_alerts(min_change_pct=30.0)
+    assert len(alerts_pg) == 1, f"Expected 1 Postgres price alert, got {len(alerts_pg)}"
+    alert_prod_pg, init_price_pg = alerts_pg[0]
+    assert alert_prod_pg.asin == "B07XJ8C8F2"
+    assert init_price_pg == 3499.0
+
     await storage_pg.close()
     print("PostgreSQL storage tests passed successfully.")
 

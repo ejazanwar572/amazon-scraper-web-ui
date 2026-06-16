@@ -1,4 +1,3 @@
-// Global Application State
 const state = {
     currentTab: 'dashboard',
     scrapingActive: false,
@@ -11,6 +10,15 @@ const state = {
         searchQuery: '',
         sortBy: 'scraped_at',
         sortOrder: 'desc',
+        searchTimeout: null
+    },
+    alerts: {
+        list: [],
+        page: 1,
+        limit: 50,
+        totalPages: 1,
+        searchQuery: '',
+        minChange: 30,
         searchTimeout: null
     }
 };
@@ -57,6 +65,10 @@ function switchTab(tabId) {
         pageTitle.innerText = 'Products Catalog';
         pageSubtitle.innerText = 'Query, search, sort, and analyze scraped product listings in PostgreSQL.';
         fetchProducts();
+    } else if (tabId === 'alerts') {
+        pageTitle.innerText = 'Price Change Alerts';
+        pageSubtitle.innerText = 'Monitor products with major price falls or hikes over time (>= 30% threshold).';
+        fetchPriceAlerts();
     }
 }
 
@@ -160,10 +172,17 @@ function updateMonitorUI(data) {
     const progressContainer = document.getElementById('monitor-progress-container');
     const placeholder = document.getElementById('monitor-placeholder-idle');
     
+    const triggerPriceCheckBtn = document.getElementById('trigger-price-check-btn');
+    
     if (data.active) {
         // Scraper is active
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation fa-beat text-orange"></i> Scraping in progress...';
+        
+        if (triggerPriceCheckBtn) {
+            triggerPriceCheckBtn.disabled = true;
+            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing Prices...';
+        }
         
         widgetDot.classList.add('active');
         widgetTitle.innerText = 'Scraping';
@@ -199,6 +218,11 @@ function updateMonitorUI(data) {
         // Scraper is idle
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i> Start Scraping Task';
+        
+        if (triggerPriceCheckBtn) {
+            triggerPriceCheckBtn.disabled = false;
+            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices';
+        }
         
         widgetDot.classList.remove('active');
         widgetTitle.innerText = 'Idle';
@@ -529,4 +553,202 @@ function handleSearchInput() {
         state.products.page = 1; // reset to page 1
         fetchProducts();
     }, 400);
+}
+
+// ---------------------------------------------------------------------------
+// Price Alerts & Check Functionality
+// ---------------------------------------------------------------------------
+async function fetchPriceAlerts() {
+    const tbody = document.getElementById('alerts-table-body');
+    if (!tbody) return;
+    
+    const thresholdSelect = document.getElementById('alerts-threshold-select');
+    if (thresholdSelect) {
+        state.alerts.minChange = parseFloat(thresholdSelect.value);
+    }
+    
+    tbody.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+        tbody.innerHTML += `
+            <tr>
+                <td><div class="skeleton-text" style="width: 50px; height: 50px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-text" style="width: 70px;"></div></td>
+                <td><div class="skeleton-text" style="width: 100%;"></div></td>
+                <td><div class="skeleton-text" style="width: 80px;"></div></td>
+                <td><div class="skeleton-text" style="width: 50px;"></div></td>
+                <td><div class="skeleton-text" style="width: 60px;"></div></td>
+                <td><div class="skeleton-text" style="width: 60px;"></div></td>
+                <td><div class="skeleton-text" style="width: 60px;"></div></td>
+                <td><div class="skeleton-text" style="width: 80px;"></div></td>
+                <td><div class="skeleton-text" style="width: 30px;"></div></td>
+            </tr>
+        `;
+    }
+    
+    let url = `/api/price-alerts?page=${state.alerts.page}&limit=${state.alerts.limit}&min_change=${state.alerts.minChange}`;
+    if (state.alerts.searchQuery) {
+        url += `&search=${encodeURIComponent(state.alerts.searchQuery)}`;
+    }
+    
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state text-red">Failed to load price alerts.</td></tr>';
+            return;
+        }
+        
+        const data = await response.json();
+        state.alerts.list = data.alerts;
+        state.alerts.totalPages = data.pagination.total_pages;
+        
+        renderAlertsTable(data.alerts);
+        renderAlertsPagination(data.pagination);
+    } catch (err) {
+        console.error('Failed to fetch price alerts:', err);
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state text-red">Error connecting to server.</td></tr>';
+    }
+}
+
+function renderAlertsTable(alerts) {
+    const tbody = document.getElementById('alerts-table-body');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (!alerts || alerts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No price alerts found matching the criteria.</td></tr>';
+        return;
+    }
+    
+    alerts.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        const formatPrice = (val) => val 
+            ? `${item.currency === 'INR' ? '₹' : item.currency + ' '}${val.toLocaleString()}`
+            : 'Unavailable';
+            
+        const formattedInitialPrice = formatPrice(item.initial_price);
+        const formattedCurrentPrice = formatPrice(item.price);
+        
+        let changeBadge = '';
+        const pct = item.change_percent;
+        if (pct !== null) {
+            const displayPct = Math.abs(pct).toFixed(1) + '%';
+            if (pct < 0) {
+                changeBadge = `<span class="badge-pill badge-price-drop"><i class="fa-solid fa-arrow-trend-down"></i> ${displayPct}</span>`;
+            } else {
+                changeBadge = `<span class="badge-pill badge-price-hike"><i class="fa-solid fa-arrow-trend-up"></i> ${displayPct}</span>`;
+            }
+        } else {
+            changeBadge = '-';
+        }
+            
+        const dateStr = item.scraped_at 
+            ? new Date(item.scraped_at).toLocaleDateString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+            : '-';
+
+        const imgSrc = item.image_url || 'https://images-na.ssl-images-amazon.com/images/I/01RmK7tJpGL._AC_SY200_.jpg';
+        
+        tr.innerHTML = `
+            <td class="thumbnail-cell">
+                <img src="${imgSrc}" class="product-thumb" alt="Product thumbnail" onerror="this.src='https://images-na.ssl-images-amazon.com/images/I/01RmK7tJpGL._AC_SY200_.jpg'">
+            </td>
+            <td><span class="badge-pill badge-pill-idle" style="font-family: monospace;">${item.asin}</span></td>
+            <td title="${item.title}"><div class="title-cell-text">${item.title || '-'}</div></td>
+            <td><strong>${item.brand || '-'}</strong></td>
+            <td><span class="badge-pill badge-pill-spec">${item.specification || '-'}</span></td>
+            <td><span class="badge-pill badge-pill-price" style="background: hsla(220, 15%, 25%, 0.3); border-color: hsla(220, 15%, 25%, 0.5);">${formattedInitialPrice}</span></td>
+            <td><span class="badge-pill badge-pill-price">${formattedCurrentPrice}</span></td>
+            <td>${changeBadge}</td>
+            <td>${dateStr}</td>
+            <td>
+                <a href="${item.url}" target="_blank" class="db-table-link" title="Open product page in Amazon"><i class="fa-solid fa-up-right-from-square"></i></a>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderAlertsPagination(meta) {
+    const info = document.getElementById('alerts-pagination-info-text');
+    const controls = document.getElementById('alerts-pagination-controls-buttons');
+    if (!info || !controls) return;
+    
+    if (meta.total_records === 0) {
+        info.innerText = 'Showing 0 to 0 of 0 entries';
+        controls.innerHTML = `
+            <button class="page-btn" disabled><i class="fa-solid fa-angle-left"></i> Previous</button>
+            <span class="active-page-num">0</span>
+            <button class="page-btn" disabled>Next <i class="fa-solid fa-angle-right"></i></button>
+        `;
+        return;
+    }
+    
+    const start = (meta.page - 1) * meta.limit + 1;
+    const end = Math.min(meta.page * meta.limit, meta.total_records);
+    
+    info.innerText = `Showing ${start} to ${end} of ${meta.total_records} entries`;
+    
+    const prevDisabled = meta.page <= 1 ? 'disabled' : '';
+    const nextDisabled = meta.page >= meta.total_pages ? 'disabled' : '';
+    
+    controls.innerHTML = `
+        <button class="page-btn" ${prevDisabled} onclick="changeAlertsPage(${meta.page - 1})">
+            <i class="fa-solid fa-angle-left"></i> Previous
+        </button>
+        <span class="active-page-num">${meta.page} / ${meta.total_pages}</span>
+        <button class="page-btn" ${nextDisabled} onclick="changeAlertsPage(${meta.page + 1})">
+            Next <i class="fa-solid fa-angle-right"></i>
+        </button>
+    `;
+}
+
+function changeAlertsPage(newPage) {
+    if (newPage < 1 || newPage > state.alerts.totalPages) return;
+    state.alerts.page = newPage;
+    fetchPriceAlerts();
+}
+
+function handleAlertsSearchInput() {
+    if (state.alerts.searchTimeout) {
+        clearTimeout(state.alerts.searchTimeout);
+    }
+    
+    state.alerts.searchTimeout = setTimeout(() => {
+        state.alerts.searchQuery = document.getElementById('alerts-search-input').value.trim();
+        state.alerts.page = 1;
+        fetchPriceAlerts();
+    }, 400);
+}
+
+async function triggerPriceCheck() {
+    if (state.scrapingActive) return;
+    
+    const btn = document.getElementById('trigger-price-check-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Syncing Prices...`;
+    }
+    
+    try {
+        const response = await fetch('/api/check-prices', { method: 'POST' });
+        if (!response.ok) {
+            const data = await response.json();
+            alert(`Failed to start price sync: ${data.detail || 'Unknown error'}`);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices`;
+            }
+            return;
+        }
+        
+        console.log("Price check background task triggered successfully");
+    } catch (err) {
+        console.error("Failed to trigger price check:", err);
+        alert("Network error starting price sync");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices`;
+        }
+    }
 }

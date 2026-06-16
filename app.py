@@ -139,6 +139,80 @@ async def run_scraper_task(keyword: str, max_pages: int, marketplace: str):
         finally:
             scrape_progress["active"] = False
 
+async def run_price_check_task():
+    async with scraping_lock:
+        log_buffer.clear()
+        logging.info("Starting background price refresh task for all stored products...")
+        start_time = time.monotonic()
+        try:
+            config = load_config()
+            config.storage.backend = "postgresql"
+            config.storage.pg_dsn = PG_DSN
+            config.monitoring.log_level = "DEBUG"
+            
+            # Fetch all product URLs from the database
+            async with await get_db_conn() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT url FROM products;")
+                    rows = await cur.fetchall()
+                    urls = [row[0] for row in rows]
+            
+            if not urls:
+                logging.info("No products found in database to check.")
+                return
+            
+            logging.info("Found %d products to check. Starting scrape...", len(urls))
+            
+            # Setup metadata in progress tracker
+            scrape_progress["keyword"] = "Price Check (All DB Products)"
+            
+            # Execute core scrape loop
+            from main import run_scrape
+            await run_scrape(config, urls)
+            
+            # Calculate metrics
+            duration = time.monotonic() - start_time
+            total = scrape_progress.get("total", 0)
+            saved = scrape_progress.get("saved", 0)
+            failed = scrape_progress.get("failed", 0)
+            success_rate = (saved / total * 100) if total > 0 else 100.0
+            
+            last_scrape.update({
+                "keyword": "Price Check (All DB Products)",
+                "marketplace": "All",
+                "max_pages": 0,
+                "total_extracted_asins": total,
+                "products_saved": saved,
+                "failed_runs": failed,
+                "avg_products_per_page": 0.0,
+                "duration_seconds": round(duration, 1),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success_rate": round(success_rate, 1)
+            })
+            logging.info("Background price refresh task finished successfully!")
+        except Exception as e:
+            logging.error("Exception occurred during background price check: %s", e, exc_info=True)
+            duration = time.monotonic() - start_time
+            total = scrape_progress.get("total", 0)
+            saved = scrape_progress.get("saved", 0)
+            failed = scrape_progress.get("failed", 0)
+            success_rate = (saved / total * 100) if total > 0 else 0.0
+            
+            last_scrape.update({
+                "keyword": "Price Check (All DB Products)",
+                "marketplace": "All",
+                "max_pages": 0,
+                "total_extracted_asins": total,
+                "products_saved": saved,
+                "failed_runs": failed,
+                "avg_products_per_page": 0.0,
+                "duration_seconds": round(duration, 1),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success_rate": round(success_rate, 1)
+            })
+        finally:
+            scrape_progress["active"] = False
+
 # Static File serving (HTML, CSS, JS)
 static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
@@ -155,6 +229,122 @@ async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks
         marketplace=request.marketplace
     )
     return {"status": "started", "message": f"Scraping started for '{request.keyword}'"}
+
+@app.post("/api/check-prices")
+async def check_prices(background_tasks: BackgroundTasks):
+    if scraping_lock.locked() or scrape_progress.get("active"):
+        raise HTTPException(status_code=400, detail="A scraping task is already running. Please wait for it to finish.")
+    
+    background_tasks.add_task(run_price_check_task)
+    return {"status": "started", "message": "Background price refresh started for all products in DB"}
+
+@app.get("/api/price-alerts")
+async def get_price_alerts(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = None,
+    min_change: float = Query(30.0, ge=0.0, le=100.0)
+):
+    offset = (page - 1) * limit
+    
+    where_clauses = ["ip.initial_price > 0", "ABS((p.price - ip.initial_price) / ip.initial_price * 100) >= %s"]
+    params = [min_change]
+    
+    if search:
+        where_clauses.append("(p.title ILIKE %s OR p.asin ILIKE %s OR p.brand ILIKE %s)")
+        search_param = f"%{search}%"
+        params.extend([search_param, search_param, search_param])
+        
+    where_sql = f"WHERE { ' AND '.join(where_clauses) }" if where_clauses else ""
+    
+    alerts_query = f"""
+        WITH first_history_ids AS (
+            SELECT MIN(id) AS first_id
+            FROM price_history
+            GROUP BY asin, marketplace
+        ),
+        initial_prices AS (
+            SELECT asin, marketplace, price AS initial_price
+            FROM price_history
+            WHERE id IN (SELECT first_id FROM first_history_ids)
+        )
+        SELECT 
+            p.asin, p.marketplace, p.title, p.price, p.currency, p.rating, p.review_count,
+            p.bsr, p.availability, p.seller, p.brand, p.category, p.image_url, p.url,
+            p.scraped_at, p.specification, ip.initial_price,
+            ((p.price - ip.initial_price) / ip.initial_price * 100) AS change_percent
+        FROM products p
+        JOIN initial_prices ip ON p.asin = ip.asin AND p.marketplace = ip.marketplace
+        {where_sql}
+        ORDER BY ABS((p.price - ip.initial_price) / ip.initial_price * 100) DESC
+        LIMIT %s OFFSET %s
+    """
+    
+    count_query = f"""
+        WITH first_history_ids AS (
+            SELECT MIN(id) AS first_id
+            FROM price_history
+            GROUP BY asin, marketplace
+        ),
+        initial_prices AS (
+            SELECT asin, marketplace, price AS initial_price
+            FROM price_history
+            WHERE id IN (SELECT first_id FROM first_history_ids)
+        )
+        SELECT COUNT(*)
+        FROM products p
+        JOIN initial_prices ip ON p.asin = ip.asin AND p.marketplace = ip.marketplace
+        {where_sql}
+    """
+    
+    try:
+        async with await get_db_conn() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(count_query, params)
+                row = await cur.fetchone()
+                total_records = row[0] if row else 0
+                
+            async with conn.cursor() as cur:
+                await cur.execute(alerts_query, params + [limit, offset])
+                rows = await cur.fetchall()
+                
+            alerts = []
+            for row in rows:
+                alerts.append({
+                    "asin": row[0],
+                    "marketplace": row[1],
+                    "title": row[2],
+                    "price": float(row[3]) if row[3] is not None else None,
+                    "currency": row[4],
+                    "rating": float(row[5]) if row[5] is not None else None,
+                    "review_count": row[6],
+                    "bsr": row[7],
+                    "availability": row[8],
+                    "seller": row[9],
+                    "brand": row[10],
+                    "category": row[11],
+                    "image_url": row[12],
+                    "url": row[13],
+                    "scraped_at": row[14].isoformat() if row[14] else None,
+                    "specification": row[15],
+                    "initial_price": float(row[16]) if row[16] is not None else None,
+                    "change_percent": float(row[17]) if row[17] is not None else None
+                })
+                
+            total_pages = math.ceil(total_records / limit)
+            
+            return {
+                "alerts": alerts,
+                "pagination": {
+                    "total_records": total_records,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": total_pages
+                }
+            }
+    except Exception as e:
+        logging.error("Database query failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 @app.post("/api/logs/clear")
 async def clear_logs():

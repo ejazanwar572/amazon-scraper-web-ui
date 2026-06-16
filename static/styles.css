@@ -1190,3 +1190,16 @@ h1, h2, h3, h4, h5, h6 {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Price Alerts Badges */
+.badge-price-drop {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.badge-price-hike {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}

@@ -29,6 +29,9 @@
                 <button class="nav-btn" id="tab-database-btn" onclick="switchTab('database')">
                     <i class="fa-solid fa-database"></i> Products DB
                 </button>
+                <button class="nav-btn" id="tab-alerts-btn" onclick="switchTab('alerts')">
+                    <i class="fa-solid fa-bell"></i> Price Alerts
+                </button>
             </nav>
             
             <div class="scraper-status-widget">
@@ -314,6 +317,71 @@
                             Showing 0 to 0 of 0 entries
                         </div>
                         <div class="pagination-controls" id="pagination-controls-buttons">
+                            <button class="page-btn" disabled><i class="fa-solid fa-angle-left"></i> Previous</button>
+                            <span class="active-page-num">1</span>
+                            <button class="page-btn" disabled>Next <i class="fa-solid fa-angle-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 3: Price Alerts Panel -->
+            <section class="tab-pane" id="tab-alerts">
+                <div class="database-card glass">
+                    <!-- Browser search & filter header -->
+                    <div class="db-filters-header">
+                        <div class="search-box-wrapper">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="alerts-search-input" placeholder="Search alerts..." oninput="handleAlertsSearchInput()">
+                        </div>
+                        
+                        <div class="filters-row" style="align-items: center; gap: 20px;">
+                            <div class="filter-group">
+                                <label for="alerts-threshold-select">Min Change</label>
+                                <select id="alerts-threshold-select" onchange="fetchPriceAlerts()">
+                                    <option value="10">10% or more</option>
+                                    <option value="20">20% or more</option>
+                                    <option value="30" selected>30% or more</option>
+                                    <option value="40">40% or more</option>
+                                    <option value="50">50% or more</option>
+                                </select>
+                            </div>
+                            
+                            <button class="action-btn-primary" id="trigger-price-check-btn" onclick="triggerPriceCheck()" style="margin-top: 15px; height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table Data Container -->
+                    <div class="table-responsive">
+                        <table class="db-table">
+                            <thead>
+                                <tr>
+                                    <th width="80">Product</th>
+                                    <th>ASIN</th>
+                                    <th>Title</th>
+                                    <th>Brand</th>
+                                    <th>Size/Qty</th>
+                                    <th>Initial Price</th>
+                                    <th>Current Price</th>
+                                    <th>Price Change</th>
+                                    <th>Last Scraped</th>
+                                    <th width="50">Link</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alerts-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table Pagination Area -->
+                    <div class="pagination-footer">
+                        <div class="pagination-info" id="alerts-pagination-info-text">
+                            Showing 0 to 0 of 0 entries
+                        </div>
+                        <div class="pagination-controls" id="alerts-pagination-controls-buttons">
                             <button class="page-btn" disabled><i class="fa-solid fa-angle-left"></i> Previous</button>
                             <span class="active-page-num">1</span>
                             <button class="page-btn" disabled>Next <i class="fa-solid fa-angle-right"></i></button>

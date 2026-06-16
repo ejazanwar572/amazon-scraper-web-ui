@@ -146,6 +146,27 @@ FROM products
 WHERE scraped_at >= ?;
 """
 
+_SELECT_PRICE_ALERTS = """
+WITH first_history_ids AS (
+    SELECT MIN(id) AS first_id
+    FROM price_history
+    GROUP BY asin, marketplace
+),
+initial_prices AS (
+    SELECT asin, marketplace, price AS initial_price
+    FROM price_history
+    WHERE id IN (SELECT first_id FROM first_history_ids)
+)
+SELECT 
+    p.asin, p.marketplace, p.title, p.price, p.currency, p.rating, p.review_count,
+    p.bsr, p.availability, p.seller, p.brand, p.category, p.image_url, p.url,
+    p.scraped_at, p.raw_html_hash, p.specification, ip.initial_price
+FROM products p
+JOIN initial_prices ip ON p.asin = ip.asin AND p.marketplace = ip.marketplace
+WHERE ip.initial_price > 0 
+  AND ABS((p.price - ip.initial_price) / ip.initial_price * 100) >= ?;
+"""
+
 _SELECT_CURRENT_PRICE = """
 SELECT price FROM products WHERE asin = ? AND marketplace = ?;
 """
@@ -372,6 +393,20 @@ class ProductStorage:
         cursor = await self._execute(_SELECT_UPDATED_SINCE, (since,))
         rows = await cursor.fetchall()
         return [_row_to_product(r) for r in rows]
+
+    async def get_price_alerts(self, min_change_pct: float = 30.0) -> list[tuple[Product, float]]:
+        """Return products with a price change >= min_change_pct compared to their initial price.
+
+        Returns a list of (Product, initial_price) tuples.
+        """
+        cursor = await self._execute(_SELECT_PRICE_ALERTS, (min_change_pct,))
+        rows = await cursor.fetchall()
+        alerts = []
+        for r in rows:
+            product = _row_to_product(r[:17])
+            initial_price = float(r[17])
+            alerts.append((product, initial_price))
+        return alerts
 
     async def get_daily_stats(self) -> dict:
         """Aggregate statistics for the current UTC day."""
