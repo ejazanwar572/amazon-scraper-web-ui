@@ -1162,6 +1162,17 @@ h1, h2, h3, h4, h5, h6 {
     padding: 8px 12px;
     border-radius: 8px;
     border: 1px solid hsla(220, 15%, 20%, 0.2);
+    min-width: 0; /* Prevents grid blowout */
+}
+
+/* Make keyword item span the full grid width and wrap text */
+.summary-details-grid > .summary-detail-item:first-child {
+    grid-column: span 3;
+}
+
+.summary-details-grid > .summary-detail-item:first-child .value {
+    white-space: normal;
+    word-break: break-word;
 }
 
 .summary-detail-item .label {
