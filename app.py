@@ -175,7 +175,7 @@ async def get_status():
 @app.get("/api/products")
 async def get_products(
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=100),
     search: Optional[str] = None,
     brand: Optional[str] = None,
     seller: Optional[str] = None,

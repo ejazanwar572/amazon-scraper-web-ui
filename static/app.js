@@ -6,7 +6,7 @@ const state = {
     products: {
         list: [],
         page: 1,
-        limit: 10,
+        limit: 50,
         totalPages: 1,
         searchQuery: '',
         sortBy: 'scraped_at',
