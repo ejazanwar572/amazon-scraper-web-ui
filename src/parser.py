@@ -74,10 +74,12 @@ class AmazonParser:
             return None
 
         price, currency = self._extract_price(tree)
+        title = self._extract_title(tree)
+        specification = self._extract_specification(title)
 
         product = Product(
             asin=asin,
-            title=self._extract_title(tree),
+            title=title,
             price=price,
             currency=currency,
             rating=self._extract_rating(tree),
@@ -92,6 +94,7 @@ class AmazonParser:
             marketplace=self._marketplace,
             scraped_at=datetime.now(timezone.utc),
             raw_html_hash=hashlib.md5(html.encode("utf-8")).hexdigest(),
+            specification=specification,
         )
         return product
 
@@ -540,6 +543,25 @@ class AmazonParser:
 
         except Exception:
             logger.exception("Error extracting image URL")
+        return None
+
+    def _extract_specification(self, title: str | None) -> str | None:
+        """Extract product volume/weight/specification from the title."""
+        if not title:
+            return None
+        # Look for weight patterns like 500g, 1kg, 250 grams
+        # Look for volume patterns like 650ml, 1L, 10 fl oz
+        # Look for count patterns like Pack of 4, 120 count, 2 pcs
+        patterns = [
+            # Volume and Weight patterns
+            r"\b\d+(?:\.\d+)?\s*(?:ml|l|g|kg|grams?|kilograms?|milliliters?|liters?|fl\.?\s*oz\.?)\b",
+            # Pieces / count / pack patterns
+            r"\b(?:pack\s+of\s+)?\d+\s*(?:pcs?|pieces?|packs?|count|sheets?|rolls?)\b",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                return match.group(0).strip()
         return None
 
 

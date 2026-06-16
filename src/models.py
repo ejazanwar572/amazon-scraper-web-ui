@@ -29,6 +29,7 @@ class Product:
     marketplace: str  # 'in', 'com', etc.
     scraped_at: datetime
     raw_html_hash: str | None  # to detect changes
+    specification: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a plain dict with ISO-formatted datetime."""

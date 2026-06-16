@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS products (
     url           TEXT    NOT NULL,
     scraped_at    TEXT    NOT NULL,
     raw_html_hash TEXT,
+    specification TEXT,
     PRIMARY KEY (asin, marketplace)
 );
 """
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS products (
     url           TEXT         NOT NULL,
     scraped_at    TIMESTAMPTZ  NOT NULL,
     raw_html_hash VARCHAR(64),
+    specification VARCHAR(100),
     PRIMARY KEY (asin, marketplace)
 );
 """
@@ -95,16 +97,16 @@ _UPSERT_PRODUCT_SQLITE = """
 INSERT OR REPLACE INTO products
     (asin, marketplace, title, price, currency, rating, review_count,
      bsr, availability, seller, brand, category, image_url, url,
-     scraped_at, raw_html_hash)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+     scraped_at, raw_html_hash, specification)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 """
 
 _UPSERT_PRODUCT_PG = """
 INSERT INTO products
     (asin, marketplace, title, price, currency, rating, review_count,
      bsr, availability, seller, brand, category, image_url, url,
-     scraped_at, raw_html_hash)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     scraped_at, raw_html_hash, specification)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (asin, marketplace) DO UPDATE SET
     title = EXCLUDED.title,
     price = EXCLUDED.price,
@@ -119,7 +121,8 @@ ON CONFLICT (asin, marketplace) DO UPDATE SET
     image_url = EXCLUDED.image_url,
     url = EXCLUDED.url,
     scraped_at = EXCLUDED.scraped_at,
-    raw_html_hash = EXCLUDED.raw_html_hash;
+    raw_html_hash = EXCLUDED.raw_html_hash,
+    specification = EXCLUDED.specification;
 """
 
 _INSERT_PRICE_HISTORY = """
@@ -130,7 +133,7 @@ VALUES (?, ?, ?, ?, ?);
 _SELECT_PRODUCT = """
 SELECT asin, marketplace, title, price, currency, rating, review_count,
        bsr, availability, seller, brand, category, image_url, url,
-       scraped_at, raw_html_hash
+       scraped_at, raw_html_hash, specification
 FROM products
 WHERE asin = ? AND marketplace = ?;
 """
@@ -138,7 +141,7 @@ WHERE asin = ? AND marketplace = ?;
 _SELECT_UPDATED_SINCE = """
 SELECT asin, marketplace, title, price, currency, rating, review_count,
        bsr, availability, seller, brand, category, image_url, url,
-       scraped_at, raw_html_hash
+       scraped_at, raw_html_hash, specification
 FROM products
 WHERE scraped_at >= ?;
 """
@@ -164,6 +167,7 @@ _COLUMN_NAMES = [
     "url",
     "scraped_at",
     "raw_html_hash",
+    "specification",
 ]
 
 
@@ -195,9 +199,26 @@ class ProductStorage:
                 await cur.execute(_CREATE_PRODUCTS_PG)
                 await cur.execute(_CREATE_PRICE_HISTORY_PG)
                 await cur.execute(_CREATE_PRICE_HISTORY_INDEX)
+                # Alter table migration to add column if it doesn't exist
+                await cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS specification VARCHAR(100);")
                 # Clean up existing products with no price
                 await cur.execute("DELETE FROM products WHERE price IS NULL;")
                 await cur.execute("DELETE FROM price_history WHERE price IS NULL;")
+                
+                # Backfill specification for existing products where it is NULL
+                await cur.execute("SELECT asin, marketplace, title FROM products WHERE specification IS NULL;")
+                rows = await cur.fetchall()
+                if rows:
+                    logger.info("Backfilling specifications for %d existing PostgreSQL products...", len(rows))
+                    from src.parser import AmazonParser
+                    parser = AmazonParser()
+                    for asin, marketplace, title in rows:
+                        spec = parser._extract_specification(title)
+                        if spec:
+                            await cur.execute(
+                                "UPDATE products SET specification = %s WHERE asin = %s AND marketplace = %s;",
+                                (spec, asin, marketplace)
+                            )
             await self._pg_conn.commit()
             logger.info("PostgreSQL storage initialised")
         else:
@@ -206,6 +227,11 @@ class ProductStorage:
             self._sqlite_conn = await aiosqlite.connect(str(path))
             await self._sqlite_conn.execute("PRAGMA journal_mode=WAL;")
             await self._sqlite_conn.execute("PRAGMA foreign_keys=ON;")
+            # SQLite Alter table migration to add column if it doesn't exist
+            try:
+                await self._sqlite_conn.execute("ALTER TABLE products ADD COLUMN specification TEXT;")
+            except Exception:
+                pass
             await self._sqlite_conn.execute(_CREATE_PRODUCTS_SQLITE)
             await self._sqlite_conn.execute(_CREATE_PRICE_HISTORY_SQLITE)
             await self._sqlite_conn.execute(_CREATE_PRICE_HISTORY_INDEX)
@@ -213,6 +239,22 @@ class ProductStorage:
             await self._sqlite_conn.execute("DELETE FROM products WHERE price IS NULL;")
             await self._sqlite_conn.execute("DELETE FROM price_history WHERE price IS NULL;")
             await self._sqlite_conn.commit()
+            
+            # Backfill specification for existing products where it is NULL
+            cursor = await self._sqlite_conn.execute("SELECT asin, marketplace, title FROM products WHERE specification IS NULL;")
+            rows = await cursor.fetchall()
+            if rows:
+                logger.info("Backfilling specifications for %d existing SQLite products...", len(rows))
+                from src.parser import AmazonParser
+                parser = AmazonParser()
+                for asin, marketplace, title in rows:
+                    spec = parser._extract_specification(title)
+                    if spec:
+                        await self._sqlite_conn.execute(
+                            "UPDATE products SET specification = ? WHERE asin = ? AND marketplace = ?;",
+                            (spec, asin, marketplace)
+                        )
+                await self._sqlite_conn.commit()
             logger.info("SQLite storage initialised at %s", self._config.db_path)
 
     async def _execute(self, sql: str, params: tuple = ()) -> Any:
@@ -272,6 +314,7 @@ class ProductStorage:
                 product.url,
                 product.scraped_at,
                 product.raw_html_hash,
+                product.specification,
             ),
         )
         await self.commit()
@@ -304,6 +347,7 @@ class ProductStorage:
                     product.url,
                     product.scraped_at,
                     product.raw_html_hash,
+                    product.specification,
                 ),
             )
             count += 1

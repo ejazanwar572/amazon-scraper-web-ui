@@ -387,7 +387,7 @@ async function fetchProducts() {
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            tbody.innerHTML = '<tr><td colspan="10" class="empty-state text-red">Failed to load products.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="empty-state text-red">Failed to load products.</td></tr>';
             return;
         }
         
@@ -399,7 +399,7 @@ async function fetchProducts() {
         renderPagination(data.pagination);
     } catch (err) {
         console.error('Failed to fetch products:', err);
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-state text-red">Error connecting to server.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty-state text-red">Error connecting to server.</td></tr>';
     }
 }
 
@@ -415,6 +415,7 @@ function renderTableSkeletons() {
             <td><div class="skeleton-text" style="width: 70px;"></div></td>
             <td><div class="skeleton-text" style="width: 100%;"></div></td>
             <td><div class="skeleton-text" style="width: 80px;"></div></td>
+            <td><div class="skeleton-text" style="width: 50px;"></div></td>
             <td><div class="skeleton-text" style="width: 60px;"></div></td>
             <td><div class="skeleton-text" style="width: 40px;"></div></td>
             <td><div class="skeleton-text" style="width: 50px;"></div></td>
@@ -431,7 +432,7 @@ function renderProductsTable(products) {
     tbody.innerHTML = '';
     
     if (!products || products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No products found matching the criteria.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No products found matching the criteria.</td></tr>';
         return;
     }
     
@@ -463,6 +464,7 @@ function renderProductsTable(products) {
             <td><span class="badge-pill badge-pill-idle" style="font-family: monospace;">${item.asin}</span></td>
             <td title="${item.title}"><div class="title-cell-text">${item.title || '-'}</div></td>
             <td><strong>${item.brand || '-'}</strong></td>
+            <td><span class="badge-pill badge-pill-spec">${item.specification || '-'}</span></td>
             <td><span class="badge-pill badge-pill-price">${formattedPrice}</span></td>
             <td><span class="badge-pill badge-pill-rating">${formattedRating}</span></td>
             <td>${item.review_count ? item.review_count.toLocaleString() : '-'}</td>

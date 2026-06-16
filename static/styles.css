@@ -1023,6 +1023,12 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid hsla(28, 90%, 55%, 0.3);
 }
 
+.badge-pill-spec {
+    background-color: var(--accent-purple-glow);
+    color: hsl(272, 85%, 75%);
+    border: 1px solid hsla(272, 85%, 60%, 0.3);
+}
+
 .db-table-link {
     color: var(--text-muted);
     font-size: 14px;

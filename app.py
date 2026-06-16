@@ -204,7 +204,7 @@ async def get_products(
     
     products_query = f"""
         SELECT asin, marketplace, title, price, currency, rating, review_count,
-               bsr, availability, seller, brand, category, image_url, url, scraped_at
+               bsr, availability, seller, brand, category, image_url, url, scraped_at, specification
         FROM products
         {where_sql}
         ORDER BY {sort_by} {sort_order}
@@ -245,7 +245,8 @@ async def get_products(
                     "category": row[11],
                     "image_url": row[12],
                     "url": row[13],
-                    "scraped_at": row[14].isoformat() if row[14] else None
+                    "scraped_at": row[14].isoformat() if row[14] else None,
+                    "specification": row[15]
                 })
                 
             total_pages = math.ceil(total_records / limit)

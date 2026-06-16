@@ -17,7 +17,7 @@ MOCK_HTML = """
     <link rel="canonical" href="https://www.amazon.in/dp/B07XJ8C8F2" />
 </head>
 <body>
-    <span id="productTitle" class="a-size-large">Test Amazon Echo Dot (3rd Gen)</span>
+    <span id="productTitle" class="a-size-large">Test Amazon Echo Dot (3rd Gen) - 500ml</span>
     <span class="a-price">
         <span class="a-offscreen">₹3,499.00</span>
     </span>
@@ -59,7 +59,8 @@ async def test_all():
     
     assert product is not None, "Failed to parse product"
     assert product.asin == "B07XJ8C8F2", f"Expected ASIN B07XJ8C8F2, got {product.asin}"
-    assert product.title == "Test Amazon Echo Dot (3rd Gen)", f"Title mismatch: {product.title}"
+    assert product.title == "Test Amazon Echo Dot (3rd Gen) - 500ml", f"Title mismatch: {product.title}"
+    assert product.specification == "500ml", f"Specification mismatch: {product.specification}"
     assert product.price == 3499.0, f"Price mismatch: {product.price}"
     assert product.currency == "INR", f"Currency mismatch: {product.currency}"
     assert product.rating == 4.4, f"Rating mismatch: {product.rating}"
@@ -90,6 +91,7 @@ async def test_all():
     retrieved = await storage_sqlite.get_product("B07XJ8C8F2", "in")
     assert retrieved is not None, "Failed to retrieve saved product from SQLite"
     assert retrieved.title == product.title
+    assert retrieved.specification == "500ml", f"SQLite spec mismatch: {retrieved.specification}"
     
     # Test price change history
     product.price = 3299.0
@@ -127,6 +129,7 @@ async def test_all():
     retrieved_pg = await storage_pg.get_product("B07XJ8C8F2", "in")
     assert retrieved_pg is not None, "Failed to retrieve saved product from PostgreSQL"
     assert retrieved_pg.title == product.title
+    assert retrieved_pg.specification == "500ml", f"Postgres spec mismatch: {retrieved_pg.specification}"
     
     # Test price change history
     product.price = 3199.0
