@@ -62,7 +62,7 @@ scraping_lock = asyncio.Lock()
 
 # Models
 class ScrapeRequest(BaseModel):
-    keyword: str = Field(..., min_length=1, max_length=100)
+    keyword: str = Field(..., min_length=1, max_length=1000)
     max_pages: int = Field(1, ge=1, le=10)
     marketplace: str = Field("in", min_length=2, max_length=10)
 
