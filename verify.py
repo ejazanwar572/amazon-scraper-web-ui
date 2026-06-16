@@ -109,13 +109,25 @@ async def test_all():
 
     # 4. Test Storage - PostgreSQL
     print("Running PostgreSQL storage tests...")
+    # Ensure test database exists first
+    try:
+        conn = await psycopg.AsyncConnection.connect("postgresql://localhost:5432/postgres", autocommit=True)
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM pg_database WHERE datname = 'amazon_scraper_test';")
+            exists = await cur.fetchone()
+            if not exists:
+                await cur.execute("CREATE DATABASE amazon_scraper_test;")
+        await conn.close()
+    except Exception as e:
+        print(f"Warning: Failed to check/create test database: {e}")
+
     config.storage.backend = "postgresql"
-    config.storage.pg_dsn = "postgresql://localhost:5432/amazon_scraper"
+    config.storage.pg_dsn = "postgresql://localhost:5432/amazon_scraper_test"
     
     storage_pg = ProductStorage(config.storage)
     await storage_pg.initialize()
     
-    # Truncate tables for a clean test run
+    # Truncate tables for a clean test run in the test DB
     async with await psycopg.AsyncConnection.connect(config.storage.pg_dsn) as conn:
         await conn.execute("TRUNCATE TABLE products CASCADE;")
         await conn.execute("TRUNCATE TABLE price_history CASCADE;")
