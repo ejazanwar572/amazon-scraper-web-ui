@@ -87,8 +87,11 @@ async def run_scraper_task(keyword: str, max_pages: int, marketplace: str):
             # Setup metadata in progress tracker
             scrape_progress["keyword"] = keyword
             
+            # Split keyword if it is comma-separated
+            keywords_list = [k.strip() for k in keyword.split(",") if k.strip()]
+            
             # Execute scraper orchestrator
-            await run_scrape_keywords(config, [keyword], max_pages=max_pages)
+            await run_scrape_keywords(config, keywords_list, max_pages=max_pages)
             logging.info("Background scraping task finished successfully!")
             
             # Capture metrics on success
