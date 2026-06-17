@@ -347,9 +347,14 @@
                                 </select>
                             </div>
                             
-                            <button class="action-btn-primary" id="trigger-price-check-btn" onclick="triggerPriceCheck()" title="Scrape all products currently in the database to check for drops" style="margin-top: 15px; height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices
-                            </button>
+                            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                <button class="action-btn-primary" id="trigger-price-check-btn" onclick="triggerPriceCheck()" title="Scrape all products currently in the database to check for drops" style="height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices
+                                </button>
+                                <button class="action-btn-secondary" id="clear-price-alerts-btn" onclick="clearPriceAlerts()" title="Reset the price baseline of all products to their current price, clearing all alerts" style="height: 38px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;">
+                                    <i class="fa-solid fa-trash-can"></i> Clear Price Alerts
+                                </button>
+                            </div>
                         </div>
                     </div>
 

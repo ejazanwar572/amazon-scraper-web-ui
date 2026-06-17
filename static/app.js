@@ -752,3 +752,35 @@ async function triggerPriceCheck() {
         }
     }
 }
+
+async function clearPriceAlerts() {
+    if (!confirm("Are you sure you want to clear all historical price alerts? This will reset the baseline price of all products to their current price.")) {
+        return;
+    }
+    
+    const btn = document.getElementById('clear-price-alerts-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Clearing...`;
+    }
+    
+    try {
+        const response = await fetch('/api/price-alerts/clear', { method: 'POST' });
+        if (!response.ok) {
+            const data = await response.json();
+            alert(`Failed to clear alerts: ${data.detail || 'Unknown error'}`);
+            return;
+        }
+        
+        alert("All historical price alerts have been cleared and baseline prices reset!");
+        fetchPriceAlerts();
+    } catch (err) {
+        console.error("Failed to clear price alerts:", err);
+        alert("Network error clearing price alerts");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> Clear Price Alerts`;
+        }
+    }
+}

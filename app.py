@@ -436,6 +436,25 @@ async def get_price_alerts(
         logging.error("Database query failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
+@app.post("/api/price-alerts/clear")
+async def clear_price_alerts():
+    try:
+        async with await get_db_conn() as conn:
+            async with conn.cursor() as cur:
+                # Clear all price history
+                await cur.execute("DELETE FROM price_history;")
+                # Insert current prices as the new initial prices
+                await cur.execute("""
+                    INSERT INTO price_history (asin, marketplace, price, currency, scraped_at)
+                    SELECT asin, marketplace, price, currency, %s
+                    FROM products
+                    WHERE price IS NOT NULL;
+                """, (datetime.now(timezone.utc),))
+                await conn.commit()
+        return {"status": "success", "message": "All price alerts have been cleared and baselines reset."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
 @app.post("/api/logs/clear")
 async def clear_logs():
     log_buffer.clear()
