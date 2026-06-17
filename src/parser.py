@@ -103,12 +103,15 @@ class AmazonParser:
     # ------------------------------------------------------------------
 
     def _extract_asin(self, url: str, tree: HTMLParser) -> str | None:
-        """Extract ASIN from the URL path or page data attributes."""
+        """Extract ASIN from the page data attributes or canonical link, falling back to the URL."""
         try:
-            # 1. From URL: /dp/B0XXXXXXXXX or /gp/product/B0XXXXXXXXX
-            match = _ASIN_URL_PATTERN.search(url)
-            if match:
-                return match.group(1)
+            # 1. From canonical link (most reliable indicator of the active variation displayed)
+            canonical = tree.css_first("link[rel='canonical']")
+            if canonical:
+                href = canonical.attributes.get("href", "")
+                match = _ASIN_URL_PATTERN.search(href)
+                if match:
+                    return match.group(1)
 
             # 2. From meta/body data attribute
             for selector in (
@@ -124,13 +127,10 @@ class AmazonParser:
                     if asin and len(asin) == 10:
                         return asin
 
-            # 3. From canonical link
-            canonical = tree.css_first("link[rel='canonical']")
-            if canonical:
-                href = canonical.attributes.get("href", "")
-                match = _ASIN_URL_PATTERN.search(href)
-                if match:
-                    return match.group(1)
+            # 3. Fallback: From requested URL path: /dp/B0XXXXXXXXX or /gp/product/B0XXXXXXXXX
+            match = _ASIN_URL_PATTERN.search(url)
+            if match:
+                return match.group(1)
 
         except Exception:
             logger.exception("Error extracting ASIN from %s", url)
