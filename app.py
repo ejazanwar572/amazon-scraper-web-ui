@@ -247,7 +247,7 @@ async def get_price_alerts(
 ):
     offset = (page - 1) * limit
     
-    where_clauses = ["ip.initial_price > 0", "ABS((p.price - ip.initial_price) / ip.initial_price * 100) >= %s"]
+    where_clauses = ["ip.initial_price > 0", "((ip.initial_price - p.price) / ip.initial_price * 100) >= %s"]
     params = [min_change]
     
     if search:
@@ -276,7 +276,7 @@ async def get_price_alerts(
         FROM products p
         JOIN initial_prices ip ON p.asin = ip.asin AND p.marketplace = ip.marketplace
         {where_sql}
-        ORDER BY ABS((p.price - ip.initial_price) / ip.initial_price * 100) DESC
+        ORDER BY ((ip.initial_price - p.price) / ip.initial_price * 100) DESC
         LIMIT %s OFFSET %s
     """
     

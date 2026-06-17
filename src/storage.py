@@ -164,7 +164,7 @@ SELECT
 FROM products p
 JOIN initial_prices ip ON p.asin = ip.asin AND p.marketplace = ip.marketplace
 WHERE ip.initial_price > 0 
-  AND ABS((p.price - ip.initial_price) / ip.initial_price * 100) >= ?;
+  AND ((ip.initial_price - p.price) / ip.initial_price * 100) >= ?;
 """
 
 _SELECT_CURRENT_PRICE = """
