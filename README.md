@@ -10,7 +10,7 @@ Features a beautiful, responsive, dark-mode glassmorphic Web UI Dashboard to con
 
 - **Sleek Web UI Dashboard**: A graphic control panel to trigger scrapes, track real-time progress percentages, read live monospace logs, view KPIs (product count, average price, brand count), and browse PostgreSQL records with search, filter, and pagination.
 - **Price Falls & Alerts Tab**: Automatically tracks historical price trends. Alerts you in a dedicated **Price Alerts** tab when a product's price falls by a configurable threshold (e.g. 10%, 20%, 30%, 40%, 50% drops) compared to its initial recorded price.
-- **Sync Latest Prices (CTA)**: A button inside the alerts view that spawns a background crawler to automatically fetch and update current prices of all stored products in the database, updating the logs and charts in real-time.
+- **Scrape Latest Prices (CTA)**: A button inside the alerts view that spawns a background crawler to automatically fetch and update current prices of all stored products in the database, updating the logs and charts in real-time.
 - **Multi-Keyword Scraping**: Supports inputting multiple keywords separated by commas (e.g. `soap, shampoo, lotion`) directly in the Web UI dashboard or using CLI arguments, executing search-scraping sequentially in a single run.
 - **Size/Quantity Extraction**: Automatically parses specifications (volume: `ml`/`L`, weight: `g`/`kg`, count: `Pack of 4`) from product titles and displays them inside a dedicated **Size/Qty** badge column in the database browser.
 - **Automatic Database Migrations**: Automatically alters table schemas on initialization and retroactively backfills specifications for all pre-existing database products.

@@ -181,7 +181,7 @@ function updateMonitorUI(data) {
         
         if (triggerPriceCheckBtn) {
             triggerPriceCheckBtn.disabled = true;
-            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing Prices...';
+            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping Prices...';
         }
         
         widgetDot.classList.add('active');
@@ -221,7 +221,7 @@ function updateMonitorUI(data) {
         
         if (triggerPriceCheckBtn) {
             triggerPriceCheckBtn.disabled = false;
-            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices';
+            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices';
         }
         
         widgetDot.classList.remove('active');
@@ -727,17 +727,17 @@ async function triggerPriceCheck() {
     const btn = document.getElementById('trigger-price-check-btn');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Syncing Prices...`;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Scraping Prices...`;
     }
     
     try {
         const response = await fetch('/api/check-prices', { method: 'POST' });
         if (!response.ok) {
             const data = await response.json();
-            alert(`Failed to start price sync: ${data.detail || 'Unknown error'}`);
+            alert(`Failed to start price scrape: ${data.detail || 'Unknown error'}`);
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices`;
+                btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices`;
             }
             return;
         }
@@ -745,10 +745,10 @@ async function triggerPriceCheck() {
         console.log("Price check background task triggered successfully");
     } catch (err) {
         console.error("Failed to trigger price check:", err);
-        alert("Network error starting price sync");
+        alert("Network error starting price scrape");
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Sync Latest Prices`;
+            btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices`;
         }
     }
 }
