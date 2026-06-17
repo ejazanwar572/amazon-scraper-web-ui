@@ -221,7 +221,7 @@ function updateMonitorUI(data) {
         
         if (triggerPriceCheckBtn) {
             triggerPriceCheckBtn.disabled = false;
-            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices (200 Oldest)';
+            triggerPriceCheckBtn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices';
         }
         
         widgetDot.classList.remove('active');
@@ -737,7 +737,7 @@ async function triggerPriceCheck() {
             alert(`Failed to start price scrape: ${data.detail || 'Unknown error'}`);
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices (200 Oldest)`;
+                btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices`;
             }
             return;
         }
@@ -748,7 +748,7 @@ async function triggerPriceCheck() {
         alert("Network error starting price scrape");
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices (200 Oldest)`;
+            btn.innerHTML = `<i class="fa-solid fa-arrows-spin"></i> Scrape Latest Prices`;
         }
     }
 }
