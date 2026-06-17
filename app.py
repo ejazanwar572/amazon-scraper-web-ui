@@ -15,6 +15,11 @@ from pydantic import BaseModel, Field
 
 from src.config import load_config
 from main import run_scrape_keywords, scrape_progress
+from src.proxy import ProxyManager
+from src.monitor import ScrapeMonitor
+from src.parser import AmazonParser
+from src.client import AmazonClient
+from src.storage import ProductStorage
 
 # Configure logging capture handler
 class DequeHandler(logging.Handler):
@@ -59,6 +64,91 @@ app = FastAPI(title="Amazon Scraper Dashboard API")
 # Configuration
 PG_DSN = "postgresql://localhost:5432/amazon_scraper"
 scraping_lock = asyncio.Lock()
+
+# Background drip scraper configuration
+DRIP_SCRAPE_INTERVAL = 15.0  # seconds between background scrapes to avoid rate limits
+
+async def run_drip_scraper_loop():
+    logging.info("Starting automatic background price drip-scraper loop (interval=%ds)...", DRIP_SCRAPE_INTERVAL)
+    await asyncio.sleep(10)  # Wait 10s for the application to fully initialize
+    
+    config = load_config()
+    proxy_manager = ProxyManager(config.proxy)
+    proxy_file = Path(config.proxy.proxy_list_file)
+    if proxy_file.is_file():
+        proxy_manager.load_proxies(str(proxy_file))
+        
+    monitor = ScrapeMonitor(config.monitoring)
+    parser = AmazonParser(marketplace=config.scraping.marketplace)
+    
+    while True:
+        try:
+            # Check if there is an active manual scraping task or manual price check
+            if scraping_lock.locked() or scrape_progress.get("active"):
+                await asyncio.sleep(5)
+                continue
+                
+            # Fetch the oldest product based on scraped_at
+            url = None
+            async with await get_db_conn() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        "SELECT url FROM products ORDER BY scraped_at ASC LIMIT 1;"
+                    )
+                    row = await cur.fetchone()
+                    if row:
+                        url = row[0]
+            
+            if not url:
+                # No products in DB, check again in 30s
+                await asyncio.sleep(30)
+                continue
+                
+            # Scrape this single product under the lock
+            async with scraping_lock:
+                client = AmazonClient(config=config, proxy_manager=proxy_manager, monitor=monitor)
+                storage = ProductStorage(config.storage)
+                await storage.initialize()
+                
+                try:
+                    result = await client.fetch_product_page(url)
+                    if result.success and result.html:
+                        product = parser.parse(result.html, result.url)
+                        if product:
+                            await storage.save_product(product)
+                            logging.info("Drip-scraper: Refreshed price for ASIN %s to %s %s", product.asin, product.currency, product.price)
+                        else:
+                            # Touch scraped_at to proceed to the next product
+                            async with await get_db_conn() as conn:
+                                async with conn.cursor() as cur:
+                                    await cur.execute(
+                                        "UPDATE products SET scraped_at = %s WHERE url = %s;",
+                                        (datetime.now(timezone.utc), url)
+                                    )
+                                    await conn.commit()
+                            logging.warning("Drip-scraper: Parsing failed for product URL: %s", url)
+                    else:
+                        # Touch scraped_at to proceed to the next product
+                        async with await get_db_conn() as conn:
+                            async with conn.cursor() as cur:
+                                await cur.execute(
+                                    "UPDATE products SET scraped_at = %s WHERE url = %s;",
+                                    (datetime.now(timezone.utc), url)
+                                )
+                                await conn.commit()
+                        logging.warning("Drip-scraper: Fetch failed or blocked for URL: %s (error: %s)", url, result.error)
+                finally:
+                    await storage.close()
+                    
+            await asyncio.sleep(DRIP_SCRAPE_INTERVAL)
+            
+        except Exception as e:
+            logging.error("Exception in background drip-scraper loop: %s", e, exc_info=True)
+            await asyncio.sleep(30)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(run_drip_scraper_loop())
 
 # Models
 class ScrapeRequest(BaseModel):
