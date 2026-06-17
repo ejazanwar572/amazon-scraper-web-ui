@@ -142,7 +142,7 @@ async def run_scraper_task(keyword: str, max_pages: int, marketplace: str):
 async def run_price_check_task():
     async with scraping_lock:
         log_buffer.clear()
-        logging.info("Starting background price refresh task for all stored products...")
+        logging.info("Starting background price refresh task for the 200 oldest stored products...")
         start_time = time.monotonic()
         try:
             config = load_config()
@@ -150,10 +150,10 @@ async def run_price_check_task():
             config.storage.pg_dsn = PG_DSN
             config.monitoring.log_level = "DEBUG"
             
-            # Fetch all product URLs from the database
+            # Fetch the 200 oldest product URLs, sorted by scraped_at ASC
             async with await get_db_conn() as conn:
                 async with conn.cursor() as cur:
-                    await cur.execute("SELECT url FROM products;")
+                    await cur.execute("SELECT url FROM products ORDER BY scraped_at ASC LIMIT 200;")
                     rows = await cur.fetchall()
                     urls = [row[0] for row in rows]
             
@@ -161,10 +161,10 @@ async def run_price_check_task():
                 logging.info("No products found in database to check.")
                 return
             
-            logging.info("Found %d products to check. Starting scrape...", len(urls))
+            logging.info("Found %d products to check (capped at 200 oldest). Starting scrape...", len(urls))
             
             # Setup metadata in progress tracker
-            scrape_progress["keyword"] = "Price Check (All DB Products)"
+            scrape_progress["keyword"] = "Price Check (200 Oldest Products)"
             
             # Execute core scrape loop
             from main import run_scrape
@@ -178,7 +178,7 @@ async def run_price_check_task():
             success_rate = (saved / total * 100) if total > 0 else 100.0
             
             last_scrape.update({
-                "keyword": "Price Check (All DB Products)",
+                "keyword": "Price Check (200 Oldest Products)",
                 "marketplace": "All",
                 "max_pages": 0,
                 "total_extracted_asins": total,
@@ -199,7 +199,7 @@ async def run_price_check_task():
             success_rate = (saved / total * 100) if total > 0 else 0.0
             
             last_scrape.update({
-                "keyword": "Price Check (All DB Products)",
+                "keyword": "Price Check (200 Oldest Products)",
                 "marketplace": "All",
                 "max_pages": 0,
                 "total_extracted_asins": total,
